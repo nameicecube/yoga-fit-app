@@ -1,0 +1,280 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle2, Clock, TrendingUp, Award, Flame } from 'lucide-react';
+import { getUserProfile, completeExercise, checkAccessStatus } from '@/lib/user-data';
+import { getTodayExercise } from '@/lib/exercises';
+import type { Exercise, UserProfile, AccessStatus } from '@/types/yoga';
+
+export function DailyExercise() {
+  const { address } = useAccount();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [todayExercise, setTodayExercise] = useState<Exercise | null>(null);
+  const [accessStatus, setAccessStatus] = useState<AccessStatus | null>(null);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
+
+  useEffect(() => {
+    if (!address) return;
+
+    const userProfile = getUserProfile(address);
+    setProfile(userProfile);
+
+    if (userProfile && userProfile.trialStartDate) {
+      const exercise = getTodayExercise(userProfile.trialStartDate);
+      setTodayExercise(exercise || null);
+    }
+
+    const access = checkAccessStatus(userProfile);
+    setAccessStatus(access);
+  }, [address]);
+
+  const handleComplete = () => {
+    if (!address || !todayExercise) return;
+
+    setIsCompleting(true);
+    setTimeout(() => {
+      const updatedProfile = completeExercise(address, todayExercise.id);
+      setProfile(updatedProfile);
+      setIsCompleting(false);
+    }, 500);
+  };
+
+  if (!address || !profile) {
+    return null;
+  }
+
+  if (!accessStatus?.hasAccess) {
+    return (
+      <Alert>
+        <AlertDescription>
+          ⚠️ Your access has expired. Please subscribe to continue your yoga journey.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (!todayExercise) {
+    return (
+      <Alert>
+        <AlertDescription>
+          No exercise available for today. Please check back tomorrow!
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  const isCompleted = profile.completedExercises.includes(todayExercise.id);
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Bar */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <Flame className="w-5 h-5 text-orange-500" />
+              <div>
+                <p className="text-2xl font-bold">{profile.streak}</p>
+                <p className="text-xs text-muted-foreground">Day Streak</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-purple-500" />
+              <div>
+                <p className="text-2xl font-bold">{profile.totalCompleted}</p>
+                <p className="text-xs text-muted-foreground">Completed</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-blue-500" />
+              <div>
+                <p className="text-2xl font-bold">{profile.currentLevel}</p>
+                <p className="text-xs text-muted-foreground">Level</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Today's Exercise */}
+      <Card className="border-2 border-primary/20">
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="text-2xl mb-2">{todayExercise.title}</CardTitle>
+              <CardDescription className="text-base">
+                {todayExercise.description}
+              </CardDescription>
+            </div>
+            <Badge variant={isCompleted ? 'default' : 'secondary'}>
+              Day {todayExercise.day}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Yoga Pose Image */}
+          {todayExercise.imageUrl && (
+            <div className="relative w-full h-64 rounded-lg overflow-hidden">
+              <img 
+                src={todayExercise.imageUrl} 
+                alt={todayExercise.title}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+              <div className="absolute bottom-4 left-4 right-4">
+                <h3 className="text-white font-semibold text-lg drop-shadow-lg">
+                  {todayExercise.title}
+                </h3>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-4 text-sm">
+            <div className="flex items-center gap-1">
+              <Clock className="w-4 h-4" />
+              <span>{todayExercise.duration} min</span>
+            </div>
+            <Badge variant="outline">{todayExercise.level}</Badge>
+            <Badge variant="outline">{todayExercise.category.replace(/_/g, ' ')}</Badge>
+          </div>
+
+          {isCompleted ? (
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                ✅ Completed! Great job on today&apos;s practice.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold">Instructions</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowInstructions(!showInstructions)}
+                    >
+                      {showInstructions ? 'Hide' : 'Show'}
+                    </Button>
+                  </div>
+                  
+                  {showInstructions && (
+                    <ol className="space-y-2 list-decimal list-inside text-sm">
+                      {todayExercise.instructions.map((instruction: string, i: number) => (
+                        <li key={i} className="text-muted-foreground">
+                          {instruction}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Benefits</h3>
+                  <ul className="space-y-1">
+                    {todayExercise.benefits.map((benefit: string, i: number) => (
+                      <li key={i} className="text-sm flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-green-500" />
+                        {benefit}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {todayExercise.precautions.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold mb-2">⚠️ Precautions</h3>
+                    <ul className="space-y-1">
+                      {todayExercise.precautions.map((precaution: string, i: number) => (
+                        <li key={i} className="text-sm text-muted-foreground">
+                          • {precaution}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                onClick={handleComplete}
+                disabled={isCompleting}
+                className="w-full h-12 text-lg font-semibold"
+                size="lg"
+              >
+                {isCompleting ? (
+                  <>Completing...</>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-5 w-5" />
+                    Mark as Completed
+                  </>
+                )}
+              </Button>
+            </>
+          )}
+
+          {/* Progress towards next level */}
+          {profile.currentLevel === 'BEGINNER' && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Progress to Intermediate</span>
+                <span>{profile.totalCompleted}/20</span>
+              </div>
+              <Progress value={(profile.totalCompleted / 20) * 100} />
+            </div>
+          )}
+          
+          {profile.currentLevel === 'INTERMEDIATE' && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Progress to Expert</span>
+                <span>{profile.totalCompleted}/50</span>
+              </div>
+              <Progress value={(profile.totalCompleted / 50) * 100} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Access Status */}
+      {accessStatus && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">
+                  {accessStatus.reason === 'TRIAL' ? '🎁 Free Trial' : '💎 Active Subscription'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {accessStatus.daysRemaining} days remaining
+                </p>
+              </div>
+              {accessStatus.daysRemaining && accessStatus.daysRemaining < 3 && (
+                <Badge variant="destructive">Expiring Soon</Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
