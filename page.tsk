@@ -1,0 +1,400 @@
+'use client'
+import { useEffect, useState } from 'react';
+import { useAccount, useReadContract } from 'wagmi';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Info, Sparkles } from 'lucide-react';
+import { WalletStatus } from '@/components/WalletStatus';
+import { MintNFTCard } from '@/components/MintNFTCard';
+import { SubscriptionPlans } from '@/components/SubscriptionPlans';
+import { DailyExercise } from '@/components/DailyExercise';
+import { BadgesDisplay } from '@/components/BadgesDisplay';
+import { YOGA_MEMBERSHIP_NFT_ADDRESS } from '@/app/config/onchainkit';
+import { YOGA_MEMBERSHIP_NFT_ABI } from '@/lib/contracts';
+import { getUserProfile } from '@/lib/user-data';
+import { useAccessControl } from '@/hooks/useAccessControl';
+import type { UserProfile } from '@/types/yoga';
+import { sdk } from "@farcaster/miniapp-sdk";
+import { useAddMiniApp } from "@/hooks/useAddMiniApp";
+import { useQuickAuth } from "@/hooks/useQuickAuth";
+import { useIsInFarcaster } from "@/hooks/useIsInFarcaster";
+
+// Disable static generation to prevent prerendering Web3 hooks
+export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
+
+export default function HomePage() {
+    const { addMiniApp } = useAddMiniApp();
+    const isInFarcaster = useIsInFarcaster()
+    useQuickAuth(isInFarcaster)
+    useEffect(() => {
+      const tryAddMiniApp = async () => {
+        try {
+          await addMiniApp()
+        } catch (error) {
+          console.error('Failed to add mini app:', error)
+        }
+
+      }
+
+    
+
+      tryAddMiniApp()
+    }, [addMiniApp])
+    useEffect(() => {
+      const initializeFarcaster = async () => {
+        try {
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          if (document.readyState !== 'complete') {
+            await new Promise<void>(resolve => {
+              if (document.readyState === 'complete') {
+                resolve()
+              } else {
+                window.addEventListener('load', () => resolve(), { once: true })
+              }
+
+            })
+          }
+
+    
+
+          await sdk.actions.ready()
+          console.log('Farcaster SDK initialized successfully - app fully loaded')
+        } catch (error) {
+          console.error('Failed to initialize Farcaster SDK:', error)
+          
+          setTimeout(async () => {
+            try {
+              await sdk.actions.ready()
+              console.log('Farcaster SDK initialized on retry')
+            } catch (retryError) {
+              console.error('Farcaster SDK retry failed:', retryError)
+            }
+
+          }, 1000)
+        }
+
+      }
+
+    
+
+      initializeFarcaster()
+    }, [])
+  const { address, isConnected } = useAccount();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  
+  // Use Access Controller smart contract
+  const {
+    hasAccess,
+    isCheckingAccess,
+    accessStatus: onChainStatus,
+    trialDaysRemaining,
+    isInTrial,
+  } = useAccessControl();
+
+  // Check if user owns NFT
+  const { data: nftBalance } = useReadContract({
+    address: YOGA_MEMBERSHIP_NFT_ADDRESS,
+    abi: YOGA_MEMBERSHIP_NFT_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+  });
+
+  const hasNFT = nftBalance !== undefined && nftBalance > 0n;
+
+  useEffect(() => {
+    if (!address) {
+      setProfile(null);
+      return;
+    }
+
+    const userProfile = getUserProfile(address);
+    setProfile(userProfile);
+  }, [address, hasNFT]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
+      <div className="absolute bottom-0 left-1/2 w-96 h-96 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
+      {/* Header */}
+      <header className="border-b border-purple-200/50 bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-lg">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 rounded-full flex items-center justify-center shadow-lg">
+                <span className="text-2xl">🧘</span>
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 bg-clip-text text-transparent">
+                  YOGA FIT
+                </h1>
+                <p className="text-xs text-gray-600 font-medium">Web3 Wellness • Base Blockchain</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8 max-w-7xl relative z-10">
+        <div className="space-y-8">
+          {/* Wallet Connection */}
+          {!isConnected && (
+            <div className="max-w-2xl mx-auto">
+              <WalletStatus />
+            </div>
+          )}
+
+          {/* Welcome Message */}
+          {isConnected && !hasNFT && (
+            <Alert className="max-w-3xl mx-auto bg-gradient-to-r from-purple-50 via-pink-50 to-orange-50 border-2 border-purple-300 shadow-xl">
+              <Info className="h-5 w-5 text-purple-600" />
+              <AlertDescription className="text-base font-medium text-gray-800">
+                👋 <strong>Welcome to YOGA FIT!</strong> Mint your membership badge below to unlock <span className="text-green-600 font-bold">7 days of FREE access</span> to all yoga content, progress tracking, and our wellness community. 🧘‍♀️✨
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* NFT Minting Section */}
+          {isConnected && !hasNFT && (
+            <div className="animate-in fade-in duration-500">
+              <MintNFTCard />
+            </div>
+          )}
+
+          {/* Main App - After NFT Minted */}
+          {isConnected && hasNFT && (
+            <div className="animate-in fade-in duration-500">
+              {/* Access Status Banner */}
+              {onChainStatus && (
+                <Card className="max-w-3xl mx-auto mb-6 bg-gradient-to-r from-purple-50 via-pink-50 to-orange-50 border-2 border-purple-200">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                      <div className="flex items-center gap-3">
+                        <Sparkles className="w-6 h-6 text-purple-600" />
+                        <div>
+                          <h3 className="font-bold text-lg">
+                            {onChainStatus.isInTrial && '🎁 Free Trial Active'}
+                            {!onChainStatus.isInTrial && onChainStatus.hasActiveSubscription && '💎 Subscription Active'}
+                            {!onChainStatus.isInTrial && !onChainStatus.hasActiveSubscription && '⏰ Access Expired'}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {onChainStatus.isInTrial && `${Number(trialDaysRemaining || 0n)} days remaining in your free trial`}
+                            {!onChainStatus.isInTrial && onChainStatus.hasActiveSubscription && 'Enjoying full access to all content'}
+                            {!onChainStatus.isInTrial && !onChainStatus.hasActiveSubscription && 'Subscribe to continue your journey'}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge 
+                        variant={onChainStatus.hasAccess ? 'default' : 'secondary'}
+                        className={`text-sm px-4 py-2 ${
+                          onChainStatus.hasAccess 
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
+                            : 'bg-gray-400'
+                        }`}
+                      >
+                        {onChainStatus.hasAccess ? '✅ Full Access' : '🔒 Locked'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Tabs defaultValue="practice" className="space-y-6">
+                <TabsList className="grid w-full max-w-md mx-auto grid-cols-3">
+                  <TabsTrigger value="practice">Practice</TabsTrigger>
+                  <TabsTrigger value="subscription">Subscribe</TabsTrigger>
+                  <TabsTrigger value="profile">Profile</TabsTrigger>
+                </TabsList>
+
+                {/* Practice Tab */}
+                <TabsContent value="practice" className="space-y-6">
+                  {isCheckingAccess ? (
+                    <Card className="max-w-2xl mx-auto">
+                      <CardContent className="pt-6 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                          <p className="text-muted-foreground">Checking access...</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : hasAccess ? (
+                    <>
+                      <DailyExercise />
+                      <BadgesDisplay />
+                    </>
+                  ) : (
+                    <Card className="max-w-2xl mx-auto border-2 border-orange-200">
+                      <CardContent className="pt-6 text-center space-y-4">
+                        <div className="text-6xl mb-4">🔒</div>
+                        <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                          Access Expired
+                        </h2>
+                        <p className="text-muted-foreground text-lg">
+                          Your {isInTrial ? 'free trial' : 'subscription'} has ended.
+                        </p>
+                        <p className="text-gray-700">
+                          Subscribe below to continue your yoga journey with daily routines, progress tracking, and more! 🧘‍♀️
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+
+                {/* Subscription Tab */}
+                <TabsContent value="subscription">
+                  <SubscriptionPlans />
+                </TabsContent>
+
+                {/* Profile Tab */}
+                <TabsContent value="profile" className="space-y-6">
+                  {profile && (
+                    <div className="max-w-4xl mx-auto space-y-6">
+                      {/* Profile Stats */}
+                      <Card>
+                        <CardContent className="pt-6">
+                          <h2 className="text-2xl font-bold mb-4">Your Profile</h2>
+                          <div className="grid md:grid-cols-2 gap-6">
+                            <div>
+                              <h3 className="font-semibold mb-2">Stats</h3>
+                              <dl className="space-y-2">
+                                <div className="flex justify-between">
+                                  <dt className="text-muted-foreground">Current Level:</dt>
+                                  <dd className="font-semibold">{profile.currentLevel}</dd>
+                                </div>
+                                <div className="flex justify-between">
+                                  <dt className="text-muted-foreground">Current Streak:</dt>
+                                  <dd className="font-semibold">{profile.streak} days 🔥</dd>
+                                </div>
+                                <div className="flex justify-between">
+                                  <dt className="text-muted-foreground">Total Completed:</dt>
+                                  <dd className="font-semibold">{profile.totalCompleted} sessions</dd>
+                                </div>
+                                <div className="flex justify-between">
+                                  <dt className="text-muted-foreground">Badges Earned:</dt>
+                                  <dd className="font-semibold">{profile.badges.length} 🏆</dd>
+                                </div>
+                              </dl>
+                            </div>
+
+                            <div>
+                              <h3 className="font-semibold mb-2">Membership</h3>
+                              <dl className="space-y-2">
+                                <div className="flex justify-between">
+                                  <dt className="text-muted-foreground">NFT Owned:</dt>
+                                  <dd className="font-semibold">✅ Yes</dd>
+                                </div>
+                                <div className="flex justify-between">
+                                  <dt className="text-muted-foreground">Status:</dt>
+                                  <dd className="font-semibold">
+                                    {isInTrial && '🎁 Free Trial'}
+                                    {!isInTrial && onChainStatus?.hasActiveSubscription && '💎 Active'}
+                                    {!isInTrial && !onChainStatus?.hasActiveSubscription && '⏰ Expired'}
+                                  </dd>
+                                </div>
+                                {isInTrial && trialDaysRemaining !== undefined && (
+                                  <div className="flex justify-between">
+                                    <dt className="text-muted-foreground">Trial Days Left:</dt>
+                                    <dd className="font-semibold">{Number(trialDaysRemaining)} days</dd>
+                                  </div>
+                                )}
+                                {profile.lastCompletedDate && (
+                                  <div className="flex justify-between">
+                                    <dt className="text-muted-foreground">Last Practice:</dt>
+                                    <dd className="font-semibold">
+                                      {new Date(profile.lastCompletedDate).toLocaleDateString()}
+                                    </dd>
+                                  </div>
+                                )}
+                              </dl>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Badges */}
+                      <BadgesDisplay />
+
+                      {/* Level Progress */}
+                      <Card>
+                        <CardContent className="pt-6">
+                          <h3 className="font-semibold mb-4">Level Progress</h3>
+                          <div className="space-y-4">
+                            {profile.currentLevel === 'BEGINNER' && (
+                              <div>
+                                <div className="flex justify-between text-sm mb-2">
+                                  <span>Progress to Intermediate</span>
+                                  <span className="font-semibold">
+                                    {profile.totalCompleted}/20 sessions
+                                  </span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all"
+                                    style={{ width: `${Math.min((profile.totalCompleted / 20) * 100, 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                            {profile.currentLevel === 'INTERMEDIATE' && (
+                              <div>
+                                <div className="flex justify-between text-sm mb-2">
+                                  <span>Progress to Expert</span>
+                                  <span className="font-semibold">
+                                    {profile.totalCompleted}/50 sessions
+                                  </span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all"
+                                    style={{ width: `${Math.min((profile.totalCompleted / 50) * 100, 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                            {profile.currentLevel === 'EXPERT' && (
+                              <div className="text-center">
+                                <p className="text-lg font-semibold text-purple-600">
+                                  🏆 You&apos;ve reached Expert level!
+                                </p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  Keep practicing to maintain your skills
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+
+          {/* Footer Info */}
+          {isConnected && hasNFT && (
+            <Card className="max-w-4xl mx-auto bg-gradient-to-r from-purple-50 to-pink-50">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <h3 className="font-semibold mb-2">About YOGA FIT</h3>
+                  <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
+                    YOGA FIT is a Web3 wellness platform on Base blockchain. Your membership NFT unlocks access to daily yoga routines, progress tracking, and a supportive community. Practice daily to build your streak, earn badges, and progress from Beginner to Expert level!
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    ⚠️ Disclaimer: Always consult with a healthcare provider before starting any exercise program.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
