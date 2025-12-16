@@ -1,0 +1,167 @@
+'use client';
+
+import { useState } from 'react';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { parseEther } from 'viem';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Check, Sparkles } from 'lucide-react';
+import { YOGA_MEMBERSHIP_NFT_ADDRESS, NFT_MEMBERSHIP_PRICE } from '@/app/config/onchainkit';
+import { YOGA_MEMBERSHIP_NFT_ABI } from '@/lib/contracts';
+import { createUserProfile } from '@/lib/user-data';
+
+export function MintNFTCard() {
+  const { address, isConnected } = useAccount();
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const handleMint = async () => {
+    if (!address || !isConnected) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
+    setError(null);
+    setSuccess(false);
+
+    try {
+      writeContract({
+        address: YOGA_MEMBERSHIP_NFT_ADDRESS,
+        abi: YOGA_MEMBERSHIP_NFT_ABI,
+        functionName: 'mint',
+        value: parseEther(NFT_MEMBERSHIP_PRICE.toString()),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to mint NFT';
+      setError(message);
+    }
+  };
+
+  // Create user profile after successful mint and reload page
+  if (isConfirmed && !success && address) {
+    createUserProfile(address);
+    setSuccess(true);
+    
+    // Reload page after 2 seconds to show Day 1 content
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
+  }
+
+  return (
+    <Card className="w-full max-w-3xl mx-auto border-0 shadow-2xl bg-gradient-to-br from-purple-50 via-white to-pink-50 overflow-hidden">
+      {/* Decorative top gradient bar */}
+      <div className="h-2 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400" />
+      
+      <CardHeader className="text-center pt-8 pb-6">
+        <div className="mx-auto mb-6 w-24 h-24 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 rounded-full flex items-center justify-center shadow-xl animate-pulse">
+          <span className="text-5xl">🧘</span>
+        </div>
+        <CardTitle className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 bg-clip-text text-transparent mb-3">
+          Join YOGA FIT
+        </CardTitle>
+        
+        {/* PROMINENT FREE TRIAL MESSAGE */}
+        <div className="inline-block bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-full font-bold text-lg md:text-xl shadow-lg mb-4 animate-bounce">
+          🎁 Mint Badge → Get 7 Days FREE Trial!
+        </div>
+        
+        <CardDescription className="text-lg text-gray-700">
+          Your gateway to Web3 wellness on Base blockchain
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6 px-6 pb-8">
+        {/* Mint Price Card */}
+        <div className="bg-white border-2 border-purple-200 p-8 rounded-2xl shadow-lg space-y-6">
+          {/* Price Display */}
+          <div className="text-center pb-4 border-b-2 border-purple-100">
+            <p className="text-sm text-gray-600 mb-2">One-time Membership Fee</p>
+            <div className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              {NFT_MEMBERSHIP_PRICE} ETH
+            </div>
+            <p className="text-xs text-gray-500 mt-2">≈ $3 USD</p>
+          </div>
+          
+          <div className="space-y-2">
+            <h3 className="font-bold text-xl mb-4 text-center bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Your Membership Includes:</h3>
+            <ul className="space-y-3">
+              <li className="flex items-start gap-3 bg-green-50 p-3 rounded-lg border-l-4 border-green-500">
+                <Check className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <span className="font-bold text-green-700">🎁 7-Day Free Trial</span>
+                  <p className="text-sm text-gray-600">Full access to all content immediately</p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3 bg-purple-50 p-3 rounded-lg">
+                <Check className="w-6 h-6 text-purple-600 mt-0.5 flex-shrink-0" />
+                <span className="text-gray-700">🧘 Daily yoga & exercise routines tailored to your level</span>
+              </li>
+              <li className="flex items-start gap-3 bg-pink-50 p-3 rounded-lg">
+                <Check className="w-6 h-6 text-pink-600 mt-0.5 flex-shrink-0" />
+                <span className="text-gray-700">📈 Structured progression: Beginner → Intermediate → Expert</span>
+              </li>
+              <li className="flex items-start gap-3 bg-orange-50 p-3 rounded-lg">
+                <Check className="w-6 h-6 text-orange-600 mt-0.5 flex-shrink-0" />
+                <span className="text-gray-700">🏆 Achievement badges & daily streak tracking</span>
+              </li>
+              <li className="flex items-start gap-3 bg-purple-50 p-3 rounded-lg">
+                <Check className="w-6 h-6 text-purple-600 mt-0.5 flex-shrink-0" />
+                <span className="text-gray-700">💎 Exclusive Web3 wellness community on Base</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {success && (
+          <Alert className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 shadow-lg">
+            <AlertDescription className="text-green-800 font-semibold text-center text-lg">
+              🎉 Welcome to YOGA FIT! Your 7-day FREE trial has started. Let&apos;s begin your wellness journey! 🧘‍♀️
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <Button
+          onClick={handleMint}
+          disabled={!isConnected || isPending || isConfirming || success}
+          className="w-full h-14 text-xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 hover:from-purple-700 hover:via-pink-700 hover:to-orange-600 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
+          size="lg"
+        >
+          {isPending || isConfirming ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              {isPending ? 'Confirm in wallet...' : 'Minting...'}
+            </>
+          ) : success ? (
+            <>
+              <Check className="mr-2 h-5 w-5" />
+              NFT Minted!
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-2 h-5 w-5" />
+              Mint Membership NFT
+            </>
+          )}
+        </Button>
+
+        {!isConnected && (
+          <p className="text-center text-sm text-muted-foreground">
+            Connect your wallet above to get started
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
