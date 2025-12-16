@@ -1,0 +1,30 @@
+import type { Metadata } from 'next';
+import '@coinbase/onchainkit/styles.css';
+import './globals.css';
+import { Providers } from './providers';
+import FarcasterWrapper from "@/components/FarcasterWrapper";
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+        <html lang="en">
+          <body className="antialiased">
+            <Providers>
+      <FarcasterWrapper>
+        {children}
+      </FarcasterWrapper>
+      </Providers>
+          </body>
+        </html>
+      );
+}
+
+export const metadata: Metadata = {
+        title: "YogaFit Web3 Wellness",
+        description: "Join YogaFit, a Web3 wellness app offering NFT-based membership. Get 7-day free access to daily yoga routines, then subscribe in USDC. Beginner to Expert chapters. Fresh content daily!",
+        other: { "fc:frame": JSON.stringify({"version":"next","imageUrl":"https://usdozf7pplhxfvrl.public.blob.vercel-storage.com/thumbnail_4e13a007-4066-4b5b-8dba-6444f204a643-2EM16kBVaTVZ2jDM48SRbJn9UDm8S9","button":{"title":"Open with Ohara","action":{"type":"launch_frame","name":"YogaFit Web3 Wellness","url":"https://brief-partly-946.app.ohara.ai","splashImageUrl":"https://usdozf7pplhxfvrl.public.blob.vercel-storage.com/farcaster/splash_images/splash_image1.svg","splashBackgroundColor":"#ffffff"}}}
+        ) }
+    };
