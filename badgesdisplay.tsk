@@ -1,0 +1,70 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Award, Trophy, Star, Zap } from 'lucide-react';
+import { getUserProfile } from '@/lib/user-data';
+import type { Badge as BadgeType } from '@/types/yoga';
+
+const badgeIcons: Record<string, typeof Award> = {
+  'first-session': Star,
+  'week-warrior': Zap,
+  'month-master': Trophy,
+  'dedicated-yogi': Award,
+  'expert-level': Trophy,
+};
+
+export function BadgesDisplay() {
+  const { address } = useAccount();
+  const [badges, setBadges] = useState<BadgeType[]>([]);
+
+  useEffect(() => {
+    if (!address) return;
+
+    const profile = getUserProfile(address);
+    if (profile) {
+      setBadges(profile.badges);
+    }
+  }, [address]);
+
+  if (!address || badges.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-yellow-500" />
+          Your Achievements
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {badges.map((badge: BadgeType) => {
+            const Icon = badgeIcons[badge.id] || Award;
+            return (
+              <div
+                key={badge.id}
+                className="flex flex-col items-center p-4 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 hover:shadow-md transition-shadow"
+              >
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-2">
+                  <Icon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="font-semibold text-sm text-center">{badge.name}</h3>
+                <p className="text-xs text-muted-foreground text-center mt-1">
+                  {badge.description}
+                </p>
+                <Badge variant="secondary" className="mt-2 text-xs">
+                  {new Date(badge.earnedDate).toLocaleDateString()}
+                </Badge>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
